@@ -4,7 +4,7 @@ My guess is that they trained a ControlNet conditioned on QR codes to achieve th
 
 Therefore I'll need to:
 
-- Create a function that receives an image and a url, generates the QR for said url, and then overlays the QR in the image. Lets define it as $QR(i, u)$.
+- Create a function that receives an image and a url, generates the QR for said url, and then overlays the QR into the image. Lets define it as $QR(i, u)$.
 - Create a dataloader based on a subset of Laion-Aesthetic.
     - For each image $i$, generate a QR code based on a random url $u$ and create $i_{qr} = QR(i, u)$.
     - Return the prompt $t$ associated to $i$, the QR $qr$ and $i_{qr}$.
