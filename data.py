@@ -21,3 +21,20 @@ def download_image(url, save_dir):
         print(f"Error downloading image from URL: {url}")
         print(f"Error message: {str(e)}")
         return None
+    
+
+class ImprovedAestheticsDataloader:
+    def __init__(self):
+        pass
+
+    def load_hf_dataset(self, split="train"):
+        self.hf_dataset = load_dataset(
+            "ChristophSchuhmann/improved_aesthetics_6.5plus",
+            split=split,
+        )
+
+    def prepare_images(self):
+        assert self.hf_dataset, "There's no dataset to get images from."
+
+        # download img and create new dataset
+        self.hf_dataset.map()
