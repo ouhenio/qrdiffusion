@@ -27,7 +27,7 @@ I managed to create a function that overlays a QR into an image.
 
 ![](figures/overlay_qr.png)
 
-This stills needs some works, since QR lectors don't recognize the QR. This probably happens because we are not respecting the QR's [quiet zone](https://barcode-labels.com/why-are-quiet-zones-so-important/).
+This stills needs some work, since QR readers don't recognize the QR. This probably happens because we are not respecting the QR's [quiet zone](https://barcode-labels.com/why-are-quiet-zones-so-important/).
 
 ### Dataset
 
