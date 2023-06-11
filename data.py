@@ -6,17 +6,24 @@ from urllib.parse import urlparse
 
 def download_image(url, save_dir):
     try:
-        response = requests.get(url, stream=True)
-        if response.status_code == 200:
-            # get image filename
-            parsed_url = urlparse(url)
-            filename = os.path.basename(parsed_url.path)
-            save_path = os.path.join(save_dir, filename)
-            
-            with open(save_path, 'wb') as file:
-                file.write(response.content)
-            
-            return save_path
+        # get image filename
+        parsed_url = urlparse(url)
+        filename = os.path.basename(parsed_url.path)
+        save_path = os.path.join(save_dir, filename)
+
+        # check if image was already downloaded, else download it
+        if os.path.exists(save_path):
+            print(f"The file {filename} already exists.")
+        else:
+            response = requests.get(url, stream=True)
+            if response.status_code == 200:
+                with open(save_path, 'wb') as file:
+                    file.write(response.content)
+            else:
+                print(f"Couldn't download image from URL: {url}")
+                return None
+        return save_path
+
     except Exception as e:
         print(f"Error downloading image from URL: {url}")
         print(f"Error message: {str(e)}")
