@@ -72,14 +72,15 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 if __name__ == "__main__":
     BATCH_SIZE = 4
     LEARNING_RATE = None
-    ADAM_BETA1 = None
-    ADAM_BETA2 = None
-    ADAM_WEIGHT_DECAY = None
-    ADAM_EPSILON = None
-    NUM_TRAIN_EPOCHS = None
+    ADAM_BETA1 = 0.9
+    ADAM_BETA2 = 0.999
+    ADAM_WEIGHT_DECAY = 1e-2
+    ADAM_EPSILON = 1e-08
+    NUM_TRAIN_EPOCHS = 1
     OUTPUT_DIR = None
-    GRADIENT_ACCUMULATION_STEPS = None
-    MIXED_PRECISION = None
+    GRADIENT_ACCUMULATION_STEPS = 4
+    MIXED_PRECISION = "bf16"
+    BASE_MODEL = "stabilityai/stable-diffusion-2-1-base"
 
     # Dataset preparation
 
