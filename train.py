@@ -2,7 +2,9 @@ import diffusers
 import torch
 import torch.nn.functional as F
 
+from accelerate import Accelerator
 from data import ImprovedAestheticsDataloader
+from PIL import Image
 from torchvision import transforms
 
 def collate_fn(examples):
@@ -50,10 +52,10 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
         return inputs.input_ids
 
     def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [Image.open(image).convert("RGB") for image in examples[image_column]]
         images = [image_transforms(image) for image in images]
 
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
+        conditioning_images = [Image.open(image) for image in examples[conditioning_image_column]]
         conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
 
         examples["pixel_values"] = images
@@ -76,16 +78,24 @@ if __name__ == "__main__":
     ADAM_EPSILON = None
     NUM_TRAIN_EPOCHS = None
     OUTPUT_DIR = None
+    GRADIENT_ACCUMULATION_STEPS = None
+    MIXED_PRECISION = None
+
+    # Dataset preparation
 
     dataset = ImprovedAestheticsDataloader(split=f"train[0:25]")
     dataset.prepare_data()
 
+    tokenizer = None
+    accelerator = Accelerator(
+        gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
+        mixed_precision=MIXED_PRECISION,
+    )
+    train_dataset = make_train_dataset(dataset, tokenizer, accelerator)
 
-    accelerator = None
 
     vae = None
     unet = None
-    tokenizer = None
     text_encoder = None
     controlnet = None
     noise_scheduler = None
@@ -108,7 +118,6 @@ if __name__ == "__main__":
     lr_scheduler = None
 
 
-    train_dataset = make_train_dataset(dataset, tokenizer, accelerator)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         shuffle=True,
