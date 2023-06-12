@@ -1,6 +1,6 @@
 import os
 from PIL import Image
-from datasets import Dataset, load_dataset
+from datasets import load_dataset
 from utils import (
     overlay_qr,
     download_image_from_url,
@@ -61,7 +61,7 @@ class ImprovedAestheticsDataloader:
         print("Downloading images...")
         dataset = self.dataset.map(lambda element: {self.image_path_key: self.download_image(element)})
         dataset = dataset.filter(lambda element: element[self.image_path_key] != None)
-        # dataset = dataset.filter(lambda element: os.path.isdir(element[self.image_path_key]))
-        print(dataset)
         print("Creating QRs...")
         dataset = dataset.map(lambda element: {self.qr_image_path_key: self.create_qr_images(element)})
+
+        self.dataset = dataset

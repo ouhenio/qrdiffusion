@@ -23,11 +23,17 @@ for (prompt, qr, img_qr) in dataloader:
 
 ### QRify
 
-I managed to create a function that overlays a QR into an image.
+Done. Here's an example of the interface to overlay a QR.
+
+```python
+from utils import overlay_qr
+
+overlay_qr(url="google.com", image="base_img.jpg", alpha=0.4)
+```
 
 ![](figures/overlay_qr.png)
 
-This stills needs some work, since QR readers don't recognize the QR. This probably happens because we are not respecting the QR's [quiet zone](https://barcode-labels.com/why-are-quiet-zones-so-important/).
+I'm not sure which alpha should I use to create the final dataset though.
 
 ### Dataset
 
