@@ -5,7 +5,7 @@ from accelerate import Accelerator
 from data import ImprovedAestheticsDataloader
 from PIL import Image
 from torchvision import transforms
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, CLIPTextModel
 from diffusers import (
     AutoencoderKL,
     ControlNetModel,
@@ -14,6 +14,8 @@ from diffusers import (
     UNet2DConditionModel,
     UniPCMultistepScheduler,
 )
+from diffusers.optimization import get_scheduler
+from tqdm import tqdm
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -79,20 +81,22 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
 if __name__ == "__main__":
     BATCH_SIZE = 4
-    LEARNING_RATE = None
+    LEARNING_RATE = 1e-5
     ADAM_BETA1 = 0.9
     ADAM_BETA2 = 0.999
     ADAM_WEIGHT_DECAY = 1e-2
     ADAM_EPSILON = 1e-08
+    LR_SCHEDULER = "constant"
+    LR_WARMUP_SETPS = 500
     NUM_TRAIN_EPOCHS = 1
-    OUTPUT_DIR = None
+    OUTPUT_DIR = "controlnet"
     GRADIENT_ACCUMULATION_STEPS = 4
     MIXED_PRECISION = "bf16"
-    BASE_MODEL = "stabilityai/stable-diffusion-2-1-base"
+    BASE_MODEL = "runwayml/stable-diffusion-v1-5"
 
     # Dataset preparation
 
-    dataset = ImprovedAestheticsDataloader(split=f"train[0:25]")
+    dataset = ImprovedAestheticsDataloader(split=f"train[0:150]")
     dataset.prepare_data()
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -105,18 +109,27 @@ if __name__ == "__main__":
         mixed_precision=MIXED_PRECISION,
     )
     train_dataset = make_train_dataset(dataset, tokenizer, accelerator)
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        shuffle=True,
+        collate_fn=collate_fn,
+        batch_size=BATCH_SIZE,
+    )
 
+    # Setup models
 
-    vae = None
-    unet = None
-    text_encoder = None
-    controlnet = None
-    noise_scheduler = None
+    noise_scheduler = DDPMScheduler.from_pretrained(BASE_MODEL, subfolder="scheduler")
+    text_encoder = CLIPTextModel.from_pretrained(BASE_MODEL, subfolder="text_encoder")
+    vae = AutoencoderKL.from_pretrained(BASE_MODEL, subfolder="vae")
+    unet = UNet2DConditionModel.from_pretrained(BASE_MODEL, subfolder="unet")
+    controlnet = ControlNetModel.from_unet(unet)
 
     vae.requires_grad_(False)
     unet.requires_grad_(False)
     text_encoder.requires_grad_(False)
     controlnet.train()
+
+    # Setup optimizers
 
     params_to_optimize = controlnet.parameters()
 
@@ -128,15 +141,12 @@ if __name__ == "__main__":
         eps=ADAM_EPSILON,
     )
 
-    lr_scheduler = None
-
-
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        shuffle=True,
-        collate_fn=collate_fn,
-        batch_size=BATCH_SIZE,
+    lr_scheduler = get_scheduler(
+        LR_SCHEDULER,
+        optimizer=optimizer,
     )
+
+    # Prepare training components
 
     controlnet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         controlnet, optimizer, train_dataloader, lr_scheduler
@@ -152,6 +162,11 @@ if __name__ == "__main__":
     unet.to(accelerator.device, dtype=weight_dtype)
     text_encoder.to(accelerator.device, dtype=weight_dtype)
 
+    # Train
+    progress_bar = tqdm(
+        range(NUM_TRAIN_EPOCHS * len(train_dataloader)),
+        desc="Steps",
+    )
 
     for epoch in range(NUM_TRAIN_EPOCHS):
         for step, batch in enumerate(train_dataloader):
@@ -209,6 +224,10 @@ if __name__ == "__main__":
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
+
+            logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            progress_bar.update(1)
+            progress_bar.set_postfix(**logs)
 
     controlnet = accelerator.unwrap_model(controlnet)
     controlnet.save_pretrained(OUTPUT_DIR)
