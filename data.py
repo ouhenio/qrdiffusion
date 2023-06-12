@@ -10,6 +10,7 @@ from utils import (
 
 class ImprovedAestheticsDataloader:
     image_url_key = "URL"
+    caption_key = "TEXT"
     image_path_key = "image_path"
     qr_image_path_key = "qr_path"
 

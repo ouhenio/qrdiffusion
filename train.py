@@ -22,9 +22,9 @@ def collate_fn(examples):
 
 def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
-    image_column = None
-    caption_column = None
-    conditioning_image_column = None
+    image_column = dataset.image_path_key
+    caption_column = dataset.caption_key
+    conditioning_image_column = dataset.qr_image_path_key
 
     image_transforms = transforms.Compose(
         [
