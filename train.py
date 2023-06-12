@@ -1,4 +1,3 @@
-import diffusers
 import torch
 import torch.nn.functional as F
 
@@ -6,6 +5,15 @@ from accelerate import Accelerator
 from data import ImprovedAestheticsDataloader
 from PIL import Image
 from torchvision import transforms
+from transformers import AutoTokenizer
+from diffusers import (
+    AutoencoderKL,
+    ControlNetModel,
+    DDPMScheduler,
+    StableDiffusionControlNetPipeline,
+    UNet2DConditionModel,
+    UniPCMultistepScheduler,
+)
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -65,7 +73,7 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
         return examples
     
     with accelerator.main_process_first():
-        train_dataset = dataset["train"].with_transform(preprocess_train)
+        train_dataset = dataset.dataset.with_transform(preprocess_train)
 
     return train_dataset
 
@@ -87,7 +95,11 @@ if __name__ == "__main__":
     dataset = ImprovedAestheticsDataloader(split=f"train[0:25]")
     dataset.prepare_data()
 
-    tokenizer = None
+    tokenizer = AutoTokenizer.from_pretrained(
+        BASE_MODEL,
+        subfolder="tokenizer",
+        use_fast=False,
+    )
     accelerator = Accelerator(
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
         mixed_precision=MIXED_PRECISION,
