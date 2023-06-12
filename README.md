@@ -21,6 +21,13 @@ for (prompt, qr, img_qr) in dataloader:
 
 ## Advances
 
+### Todos
+
+- [x] QRify
+- [x] Dataloader
+- [x] Training script
+- [ ] Train
+
 ### QRify
 
 Done. Here's an example of the interface to overlay a QR.
@@ -37,7 +44,7 @@ I'm not sure which alpha should I use to create the final dataset though.
 
 ### Dataset
 
-The data preparation logic is ready. I still need to add how the tensors are created though.
+The data preparation logic is ready.
 
 ```python
 from data import ImprovedAestheticsDataloader
@@ -50,4 +57,10 @@ ds.dataset # dataset in huggingface format
 
 ### Training
 
-todo
+Done. 😊
+
+```
+python train.py
+```
+
+Check the code to tune hyperparams. Also note that by default it only uses 150 elements for trainig.
