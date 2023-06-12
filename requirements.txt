@@ -3,3 +3,4 @@ diffusers==0.16.1
 Pillow==9.5.0
 qrcode==7.4.2 
 torch==2.0.1
+torchvision==0.1.9 

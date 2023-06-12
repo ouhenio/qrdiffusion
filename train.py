@@ -3,12 +3,69 @@ import torch
 import torch.nn.functional as F
 
 from data import ImprovedAestheticsDataloader
+from torchvision import transforms
 
-def collate_fn():
-    pass
+def collate_fn(examples):
+    pixel_values = torch.stack([example["pixel_values"] for example in examples])
+    pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-def make_train_dataset():
-    pass
+    conditioning_pixel_values = torch.stack([example["conditioning_pixel_values"] for example in examples])
+    conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
+
+    input_ids = torch.stack([example["input_ids"] for example in examples])
+
+    return {
+        "pixel_values": pixel_values,
+        "conditioning_pixel_values": conditioning_pixel_values,
+        "input_ids": input_ids,
+    }
+
+def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
+
+    image_column = None
+    caption_column = None
+    conditioning_image_column = None
+
+    image_transforms = transforms.Compose(
+        [
+            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.CenterCrop(resolution),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
+        ]
+    )
+
+    conditioning_image_transforms = transforms.Compose(
+        [
+            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.CenterCrop(resolution),
+            transforms.ToTensor(),
+        ]
+    )
+
+    def tokenize_captions(examples):
+        inputs = tokenizer(
+            examples[caption_column], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+        )
+        return inputs.input_ids
+
+    def preprocess_train(examples):
+        images = [image.convert("RGB") for image in examples[image_column]]
+        images = [image_transforms(image) for image in images]
+
+        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
+        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
+
+        examples["pixel_values"] = images
+        examples["conditioning_pixel_values"] = conditioning_images
+        examples["input_ids"] = tokenize_captions(examples)
+
+        return examples
+    
+    with accelerator.main_process_first():
+        train_dataset = dataset["train"].with_transform(preprocess_train)
+
+    return train_dataset
 
 if __name__ == "__main__":
     BATCH_SIZE = 4
