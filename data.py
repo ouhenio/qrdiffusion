@@ -1,47 +1,67 @@
-import requests
 import os
 from PIL import Image
 from datasets import Dataset, load_dataset
-from urllib.parse import urlparse
-
-def download_image(url, save_dir):
-    try:
-        # get image filename
-        parsed_url = urlparse(url)
-        filename = os.path.basename(parsed_url.path)
-        save_path = os.path.join(save_dir, filename)
-
-        # check if image was already downloaded, else download it
-        if os.path.exists(save_path):
-            print(f"The file {filename} already exists.")
-        else:
-            response = requests.get(url, stream=True)
-            if response.status_code == 200:
-                with open(save_path, 'wb') as file:
-                    file.write(response.content)
-            else:
-                print(f"Couldn't download image from URL: {url}")
-                return None
-        return save_path
-
-    except Exception as e:
-        print(f"Error downloading image from URL: {url}")
-        print(f"Error message: {str(e)}")
-        return None
+from utils import (
+    overlay_qr,
+    download_image_from_url,
+    generate_random_string,
+)
     
 
 class ImprovedAestheticsDataloader:
-    def __init__(self):
-        pass
+    image_url_key = "URL"
+    image_path_key = "image_path"
+    qr_image_path_key = "qr_path"
 
-    def load_hf_dataset(self, split="train"):
-        self.hf_dataset = load_dataset(
+    def __init__(
+        self,
+        split: str = "train",
+        images_folder: str = "images",
+        qr_images_folder: str = 'qr_images',
+    ) -> None:
+        self.images_folder = images_folder
+        if not os.path.exists(images_folder):
+            os.mkdir(images_folder)
+        self.qr_images_folder = qr_images_folder
+        if not os.path.exists(qr_images_folder):
+            os.mkdir(qr_images_folder)
+        self.load_hf_dataset(split)
+
+    def load_hf_dataset(self, split: str) -> None:
+        self.dataset = load_dataset(
             "ChristophSchuhmann/improved_aesthetics_6.5plus",
             split=split,
         )
 
-    def prepare_images(self):
-        assert self.hf_dataset, "There's no dataset to get images from."
+    def download_image(self, element):
+        image_path = download_image_from_url(element[self.image_url_key], self.images_folder)
+        return image_path
 
-        # download img and create new dataset
-        self.hf_dataset.map()
+    def create_qr_images(self, element):
+        # create random string
+        url = generate_random_string()
+
+        # load image and create qr path
+        image_path = element[self.image_path_key]
+        print(image_path)
+        image_filename = os.path.basename(image_path)
+        qr_image_path = os.path.join(self.qr_images_folder, image_filename)
+
+        # make overlay and save it
+        image = Image.open(image_path)
+        qr_img = overlay_qr(url=url, image=image, alpha=0.5)
+        qr_img.save(qr_image_path, format="JPEG")
+
+        # create qr column
+        return qr_image_path
+
+    def prepare_data(self):
+        assert self.dataset, "There's no dataset to get images from."
+    
+        print("Downloading images...")
+        dataset = self.dataset.map(lambda element: {self.image_path_key: self.download_image(element)})
+        dataset = dataset.filter(lambda element: element[self.image_path_key] != None)
+        # dataset = dataset.filter(lambda element: os.path.isdir(element[self.image_path_key]))
+        print(dataset)
+        print("Creating QRs...")
+        dataset = dataset.map(lambda element: {self.qr_image_path_key: self.create_qr_images(element)})
