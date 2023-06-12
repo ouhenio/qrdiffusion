@@ -37,7 +37,16 @@ I'm not sure which alpha should I use to create the final dataset though.
 
 ### Dataset
 
-todo
+The data preparation logic is ready. I still need to add how the tensors are created though.
+
+```python
+from data import ImprovedAestheticsDataloader
+
+ds = ImprovedAestheticsDataloader(split=f"train[0:25]")
+ds.prepare_data()
+ds.dataset # dataset in huggingface format
+
+```
 
 ### Training
 
