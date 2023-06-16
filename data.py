@@ -50,7 +50,7 @@ class ImprovedAestheticsDataloader:
 
         # make overlay and save it
         image = Image.open(image_path)
-        qr_img = overlay_qr(url=url, image=image, alpha=0.5)
+        qr_img = overlay_qr(url=url, image=image, alpha=0.3)
         qr_img.save(qr_image_path, format="JPEG")
 
         # create qr column
