@@ -10,9 +10,7 @@ from diffusers import (
     AutoencoderKL,
     ControlNetModel,
     DDPMScheduler,
-    StableDiffusionControlNetPipeline,
     UNet2DConditionModel,
-    UniPCMultistepScheduler,
 )
 from diffusers.optimization import get_scheduler
 from tqdm import tqdm
@@ -88,7 +86,7 @@ if __name__ == "__main__":
     ADAM_EPSILON = 1e-08
     LR_SCHEDULER = "constant"
     LR_WARMUP_SETPS = 500
-    NUM_TRAIN_EPOCHS = 1
+    NUM_TRAIN_EPOCHS = 5
     OUTPUT_DIR = "controlnet"
     GRADIENT_ACCUMULATION_STEPS = 4
     MIXED_PRECISION = "bf16"
