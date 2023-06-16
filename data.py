@@ -44,7 +44,6 @@ class ImprovedAestheticsDataloader:
 
         # load image and create qr path
         image_path = element[self.image_path_key]
-        print(image_path)
         image_filename = os.path.basename(image_path)
         qr_image_path = os.path.join(self.qr_images_folder, image_filename)
 
@@ -59,10 +58,8 @@ class ImprovedAestheticsDataloader:
     def prepare_data(self):
         assert self.dataset, "There's no dataset to get images from."
     
-        print("Downloading images...")
         dataset = self.dataset.map(lambda element: {self.image_path_key: self.download_image(element)})
         dataset = dataset.filter(lambda element: element[self.image_path_key] != None)
-        print("Creating QRs...")
         dataset = dataset.map(lambda element: {self.qr_image_path_key: self.create_qr_images(element)})
 
         self.dataset = dataset
