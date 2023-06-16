@@ -2,10 +2,14 @@ import requests
 import os
 import random
 import string
+import io
+import cairosvg
+
 
 from typing import Union, Optional
 
 import qrcode
+import qrcode.image.svg
 from PIL import Image
 from urllib.parse import urlparse
 
@@ -24,6 +28,34 @@ def create_qr(url: str) -> Image.Image:
 
     return qr_image
 
+def create_svg_qr(url: str) -> Image.Image:
+    factory = qrcode.image.svg.SvgImage
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    qr_image = qr.make_image(
+        image_factory=factory,
+        fill="black",
+        back_color="none",
+    )
+
+    png_io = io.BytesIO()
+    cairosvg.svg2png(
+        bytestring=qr_image.to_string(),
+        write_to=png_io,
+        output_width=512,
+        output_height=512,
+    )
+
+    qr_image = Image.open(io.BytesIO(png_io.getvalue()))
+
+    return qr_image
 
 def overlay_qr(
     url: str,
@@ -31,17 +63,14 @@ def overlay_qr(
     alpha: float,
 ) -> Image.Image:
     qr_image = create_qr(url)
-    qr_image = qr_image.resize(image.size, Image.ANTIALIAS)
+    qr_image = qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
-    # convert images to rgba to support alpha channel
-    qr_image = qr_image.convert("RGBA")
-    image = image.convert("RGBA")
+    svg_qr_image = create_svg_qr(url)
+    svg_qr_image = svg_qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
     # apply overlay
     overlayed_image = Image.blend(image, qr_image, alpha=alpha)
-
-    # convert back into rgb
-    overlayed_image = overlayed_image.convert('RGB')
+    overlayed_image.paste(svg_qr_image, (0, 0), svg_qr_image)
     
     return overlayed_image
 
