@@ -62,13 +62,14 @@ def overlay_qr(
     image: Union[Image.Image, str],
     alpha: float,
 ) -> Image.Image:
+    image = image.convert("RGBA")
+
     qr_image = create_qr(url)
     qr_image = qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
     svg_qr_image = create_svg_qr(url)
     svg_qr_image = svg_qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
-    # apply overlay
     overlayed_image = Image.blend(image, qr_image, alpha=alpha)
     overlayed_image.paste(svg_qr_image, (0, 0), svg_qr_image)
     
