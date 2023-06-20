@@ -61,7 +61,6 @@ def create_svg_qr(url: str) -> Image.Image:
 def overlay_qr(
     url: str,
     image: Union[Image.Image, str],
-    alpha: float,
 ) -> Image.Image:
     image = image.convert("RGBA")
 

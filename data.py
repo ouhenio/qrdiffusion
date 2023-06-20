@@ -23,7 +23,7 @@ image_transforms = transforms.Compose(
     ]
 )
 
-target_path =os.environ.get("TARGET_PATH")
+target_path = os.environ.get("TARGET_PATH")
 map_cache_target_path = os.environ.get("MAP_CACHE_PATH")
 datasets.config.DOWNLOADED_DATASETS_PATH = Path(target_path)
 

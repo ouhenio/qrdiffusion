@@ -90,7 +90,7 @@ if __name__ == "__main__":
     ADAM_EPSILON = 1e-08
     LR_SCHEDULER = "constant"
     LR_WARMUP_SETPS = 500
-    NUM_TRAIN_EPOCHS = 5
+    NUM_TRAIN_EPOCHS = 3
     OUTPUT_DIR = os.environ.get("OUTPUT_DIR")
     GRADIENT_ACCUMULATION_STEPS = 1
     MIXED_PRECISION = "bf16"
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     # Dataset preparation
 
-    dataset = DiffussionDB(split="train")
+    dataset = DiffussionDB(split="train", version="2m_random_50k")
     dataset.prepare_data()
 
     tokenizer = AutoTokenizer.from_pretrained(
