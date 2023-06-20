@@ -4,13 +4,14 @@ import random
 import string
 import io
 import cairosvg
+import numpy as np
 
 
 from typing import Union, Optional
 
 import qrcode
 import qrcode.image.svg
-from PIL import Image
+from PIL import Image, ImageMath
 from urllib.parse import urlparse
 
 
@@ -67,13 +68,17 @@ def overlay_qr(
     qr_image = create_qr(url)
     qr_image = qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
-    svg_qr_image = create_svg_qr(url)
-    svg_qr_image = svg_qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
+    # convert to numpy to parallelize alpha processing
+    np_qr_image = np.array(qr_image)
+    is_white = np.all(np_qr_image[:, :, :3] > 200, axis=2)
+    np_qr_image[is_white, 3] = 60  # if its white, change alpha to 60
+    np_qr_image[~is_white, 3] = 200  # if its not, change to 200
 
-    overlayed_image = Image.blend(image, qr_image, alpha=alpha)
-    overlayed_image.paste(svg_qr_image, (0, 0), svg_qr_image)
+    qr_transparent = Image.fromarray(np_qr_image)
+
+    image.paste(qr_transparent, (0, 0), qr_transparent)
     
-    return overlayed_image
+    return image
 
 def download_image_from_url(
     url: str,
