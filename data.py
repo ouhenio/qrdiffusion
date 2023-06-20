@@ -1,12 +1,67 @@
 import os
 from PIL import Image
+import datasets
 from datasets import load_dataset
 from utils import (
     overlay_qr,
     download_image_from_url,
     generate_random_string,
+    create_qr
 )
+from pathlib import Path
+from torchvision import transforms
+from dotenv import load_dotenv
+
+import random
     
+load_dotenv()
+
+image_transforms = transforms.Compose(
+    [
+        transforms.Resize(512, interpolation=transforms.InterpolationMode.BILINEAR),
+        transforms.CenterCrop(512),
+    ]
+)
+
+target_path =os.environ.get("TARGET_PATH")
+map_cache_target_path = os.environ.get("MAP_CACHE_PATH")
+datasets.config.DOWNLOADED_DATASETS_PATH = Path(target_path)
+
+class DiffussionDB:
+    caption_key = "prompt"
+    image_key = "image"
+    qr_key = "qr"
+
+    def __init__(
+        self,
+        version = "2m_random_10k",
+        split = "train",
+    ):
+        self.dataset = load_dataset(
+            "poloclub/diffusiondb",
+            version,
+            cache_dir=target_path,
+            split=split,
+        )
+
+    def create_qr_image(self, element):
+        string_length = random.randint(6, 24)
+        url = generate_random_string(string_length)
+        image = element[self.image_key]
+        image = image_transforms(image)
+        qr_image = overlay_qr(url=url, image=image)
+
+        qr = create_qr(url)
+        qr = qr.resize(image.size, Image.ANTIALIAS)
+
+        return {self.image_key: qr_image, self.qr_key: qr}
+
+    def prepare_data(self):
+        self.dataset = self.dataset.map(
+            self.create_qr_image,
+            cache_file_name=map_cache_target_path,
+        )
+
 
 class ImprovedAestheticsDataloader:
     image_url_key = "URL"
@@ -49,7 +104,7 @@ class ImprovedAestheticsDataloader:
 
         # make overlay and save it
         image = Image.open(image_path)
-        qr_img = overlay_qr(url=url, image=image, alpha=0.3)
+        qr_img = overlay_qr(url=url, image=image)
         qr_img.save(qr_image_path, format="JPEG")
 
         # create qr column
