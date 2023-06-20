@@ -2,6 +2,7 @@ notebooks
 images
 qr_images
 controlnet
+.env
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
