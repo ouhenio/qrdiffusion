@@ -1,8 +1,8 @@
-# QRdiffusion
+# Controlnet - QR
 
 ## Roadmap
 
-My guess is that they trained a ControlNet conditioned on QR codes to achieve this.
+My guess is that the authors of the famous reddit post trained a ControlNet conditioned on QR codes to achieve this.
 
 Therefore I'll need to:
 
@@ -57,10 +57,16 @@ ds.dataset # dataset in huggingface format
 
 ### Training
 
-Done. 😊
+I've trained various versions, but so far they all suck.
 
-```
-python train.py
-```
+Here are some examples:
 
-Check the code to tune hyperparams. Also note that by default it only uses 150 elements for trainig.
+![](figures/no_alpha_qr.png)
+
+![](figures/alpha_qr.png)
+
+Clearly, the method I'm using to generate the training images is conditioning the model to just paste the QR into the image.
+
+I'll try to improve this in the next iterations. 😊
+
+ps: the code sucks atm.
