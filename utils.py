@@ -4,13 +4,14 @@ import random
 import string
 import io
 import cairosvg
+import numpy as np
 
 
 from typing import Union, Optional
 
 import qrcode
 import qrcode.image.svg
-from PIL import Image
+from PIL import Image, ImageMath
 from urllib.parse import urlparse
 
 
@@ -28,51 +29,28 @@ def create_qr(url: str) -> Image.Image:
 
     return qr_image
 
-def create_svg_qr(url: str) -> Image.Image:
-    factory = qrcode.image.svg.SvgImage
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(url)
-    qr.make(fit=True)
-
-    qr_image = qr.make_image(
-        image_factory=factory,
-        fill="black",
-        back_color="none",
-    )
-
-    png_io = io.BytesIO()
-    cairosvg.svg2png(
-        bytestring=qr_image.to_string(),
-        write_to=png_io,
-        output_width=512,
-        output_height=512,
-    )
-
-    qr_image = Image.open(io.BytesIO(png_io.getvalue()))
-
-    return qr_image
-
 def overlay_qr(
     url: str,
     image: Union[Image.Image, str],
-    alpha: float,
+    background_alpha: int = 60,
+    qr_alpha: int = 200,
 ) -> Image.Image:
+    image = image.convert("RGBA")
+
     qr_image = create_qr(url)
     qr_image = qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
 
-    svg_qr_image = create_svg_qr(url)
-    svg_qr_image = svg_qr_image.resize(image.size, Image.ANTIALIAS).convert("RGBA")
+    # convert to numpy to parallelize alpha processing
+    np_qr_image = np.array(qr_image)
+    is_white = np.all(np_qr_image[:, :, :3] > 200, axis=2)
+    np_qr_image[is_white, 3] = background_alpha # apply background_alpha to white
+    np_qr_image[~is_white, 3] = qr_alpha # apply qr_alpha to qr content
 
-    # apply overlay
-    overlayed_image = Image.blend(image, qr_image, alpha=alpha)
-    overlayed_image.paste(svg_qr_image, (0, 0), svg_qr_image)
+    qr_transparent = Image.fromarray(np_qr_image)
+
+    image.paste(qr_transparent, (0, 0), qr_transparent)
     
-    return overlayed_image
+    return image
 
 def download_image_from_url(
     url: str,

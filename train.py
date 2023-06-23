@@ -1,8 +1,9 @@
+import os
 import torch
 import torch.nn.functional as F
 
 from accelerate import Accelerator
-from data import ImprovedAestheticsDataloader
+from data import DiffussionDB
 from PIL import Image
 from torchvision import transforms
 from transformers import AutoTokenizer, CLIPTextModel
@@ -13,7 +14,10 @@ from diffusers import (
     UNet2DConditionModel,
 )
 from diffusers.optimization import get_scheduler
+from dotenv import load_dotenv
 from tqdm import tqdm
+
+load_dotenv()
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -32,9 +36,9 @@ def collate_fn(examples):
 
 def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
-    image_column = dataset.image_path_key
+    image_column = dataset.image_key
     caption_column = dataset.caption_key
-    conditioning_image_column = dataset.qr_image_path_key
+    conditioning_image_column = dataset.qr_key
 
     image_transforms = transforms.Compose(
         [
@@ -60,10 +64,10 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
         return inputs.input_ids
 
     def preprocess_train(examples):
-        images = [Image.open(image).convert("RGB") for image in examples[image_column]]
+        images = [image.convert("RGB") for image in examples[image_column]]
         images = [image_transforms(image) for image in images]
 
-        conditioning_images = [Image.open(image) for image in examples[conditioning_image_column]]
+        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
         conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
 
         examples["pixel_values"] = images
@@ -78,7 +82,7 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
     return train_dataset
 
 if __name__ == "__main__":
-    BATCH_SIZE = 4
+    BATCH_SIZE = 32
     LEARNING_RATE = 1e-5
     ADAM_BETA1 = 0.9
     ADAM_BETA2 = 0.999
@@ -86,15 +90,16 @@ if __name__ == "__main__":
     ADAM_EPSILON = 1e-08
     LR_SCHEDULER = "constant"
     LR_WARMUP_SETPS = 500
-    NUM_TRAIN_EPOCHS = 5
-    OUTPUT_DIR = "controlnet"
-    GRADIENT_ACCUMULATION_STEPS = 4
+    NUM_TRAIN_EPOCHS = 3
+    OUTPUT_DIR = os.environ.get("OUTPUT_DIR")
+    GRADIENT_ACCUMULATION_STEPS = 1
     MIXED_PRECISION = "bf16"
     BASE_MODEL = "runwayml/stable-diffusion-v1-5"
+    CACHE_DIR = os.environ.get("CACHE_DIR")
 
     # Dataset preparation
 
-    dataset = ImprovedAestheticsDataloader(split=f"train[0:150]")
+    dataset = DiffussionDB(split="train", version="2m_random_50k")
     dataset.prepare_data()
 
     tokenizer = AutoTokenizer.from_pretrained(
@@ -116,10 +121,27 @@ if __name__ == "__main__":
 
     # Setup models
 
-    noise_scheduler = DDPMScheduler.from_pretrained(BASE_MODEL, subfolder="scheduler")
-    text_encoder = CLIPTextModel.from_pretrained(BASE_MODEL, subfolder="text_encoder")
-    vae = AutoencoderKL.from_pretrained(BASE_MODEL, subfolder="vae")
-    unet = UNet2DConditionModel.from_pretrained(BASE_MODEL, subfolder="unet")
+
+    noise_scheduler = DDPMScheduler.from_pretrained(
+        BASE_MODEL,
+        subfolder="scheduler",
+        cache_dir=CACHE_DIR,
+    )
+    text_encoder = CLIPTextModel.from_pretrained(
+        BASE_MODEL,
+        subfolder="text_encoder",
+        cache_dir=CACHE_DIR,
+    )
+    vae = AutoencoderKL.from_pretrained(
+        BASE_MODEL,
+        subfolder="vae",
+        cache_dir=CACHE_DIR,
+    )
+    unet = UNet2DConditionModel.from_pretrained(
+        BASE_MODEL,
+        subfolder="unet",
+        cache_dir=CACHE_DIR,
+    )
     controlnet = ControlNetModel.from_unet(unet)
 
     vae.requires_grad_(False)
@@ -229,4 +251,3 @@ if __name__ == "__main__":
 
     controlnet = accelerator.unwrap_model(controlnet)
     controlnet.save_pretrained(OUTPUT_DIR)
-    accelerator.end_training()
