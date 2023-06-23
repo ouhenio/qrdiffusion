@@ -29,38 +29,11 @@ def create_qr(url: str) -> Image.Image:
 
     return qr_image
 
-def create_svg_qr(url: str) -> Image.Image:
-    factory = qrcode.image.svg.SvgImage
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
-    )
-    qr.add_data(url)
-    qr.make(fit=True)
-
-    qr_image = qr.make_image(
-        image_factory=factory,
-        fill="black",
-        back_color="none",
-    )
-
-    png_io = io.BytesIO()
-    cairosvg.svg2png(
-        bytestring=qr_image.to_string(),
-        write_to=png_io,
-        output_width=512,
-        output_height=512,
-    )
-
-    qr_image = Image.open(io.BytesIO(png_io.getvalue()))
-
-    return qr_image
-
 def overlay_qr(
     url: str,
     image: Union[Image.Image, str],
+    background_alpha: int = 60,
+    qr_alpha: int = 200,
 ) -> Image.Image:
     image = image.convert("RGBA")
 
@@ -70,8 +43,8 @@ def overlay_qr(
     # convert to numpy to parallelize alpha processing
     np_qr_image = np.array(qr_image)
     is_white = np.all(np_qr_image[:, :, :3] > 200, axis=2)
-    np_qr_image[is_white, 3] = 60  # if its white, change alpha to 60
-    np_qr_image[~is_white, 3] = 200  # if its not, change to 200
+    np_qr_image[is_white, 3] = background_alpha # apply background_alpha to white
+    np_qr_image[~is_white, 3] = qr_alpha # apply qr_alpha to qr content
 
     qr_transparent = Image.fromarray(np_qr_image)
 
