@@ -1,19 +1,15 @@
 import os
-from PIL import Image
+import random
+from pathlib import Path
+
 import datasets
 from datasets import load_dataset
-from utils import (
-    overlay_qr,
-    download_image_from_url,
-    generate_random_string,
-    create_qr
-)
-from pathlib import Path
-from torchvision import transforms
 from dotenv import load_dotenv
+from PIL import Image
+from torchvision import transforms
 
-import random
-    
+from utils import create_qr, download_image_from_url, generate_random_string, overlay_qr
+
 load_dotenv()
 
 image_transforms = transforms.Compose(
@@ -27,6 +23,7 @@ target_path = os.environ.get("TARGET_PATH")
 map_cache_target_path = os.environ.get("MAP_CACHE_PATH")
 datasets.config.DOWNLOADED_DATASETS_PATH = Path(target_path)
 
+
 class DiffussionDB:
     caption_key = "prompt"
     image_key = "image"
@@ -34,8 +31,8 @@ class DiffussionDB:
 
     def __init__(
         self,
-        version = "2m_random_10k",
-        split = "train",
+        version="2m_random_10k",
+        split="train",
     ):
         self.dataset = load_dataset(
             "poloclub/diffusiondb",
@@ -73,7 +70,7 @@ class ImprovedAestheticsDataloader:
         self,
         split: str = "train",
         images_folder: str = "images",
-        qr_images_folder: str = 'qr_images',
+        qr_images_folder: str = "qr_images",
     ) -> None:
         self.images_folder = images_folder
         if not os.path.exists(images_folder):
@@ -90,7 +87,9 @@ class ImprovedAestheticsDataloader:
         )
 
     def download_image(self, element):
-        image_path = download_image_from_url(element[self.image_url_key], self.images_folder)
+        image_path = download_image_from_url(
+            element[self.image_url_key], self.images_folder
+        )
         return image_path
 
     def create_qr_images(self, element):
@@ -112,9 +111,15 @@ class ImprovedAestheticsDataloader:
 
     def prepare_data(self):
         assert self.dataset, "There's no dataset to get images from."
-    
-        dataset = self.dataset.map(lambda element: {self.image_path_key: self.download_image(element)})
-        dataset = dataset.filter(lambda element: element[self.image_path_key] != None)
-        dataset = dataset.map(lambda element: {self.qr_image_path_key: self.create_qr_images(element)})
+
+        dataset = self.dataset.map(
+            lambda element: {self.image_path_key: self.download_image(element)}
+        )
+        dataset = dataset.filter(
+            lambda element: element[self.image_path_key] is not None
+        )
+        dataset = dataset.map(
+            lambda element: {self.qr_image_path_key: self.create_qr_images(element)}
+        )
 
         self.dataset = dataset

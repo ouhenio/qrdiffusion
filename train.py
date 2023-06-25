@@ -1,12 +1,8 @@
 import os
+
 import torch
 import torch.nn.functional as F
-
 from accelerate import Accelerator
-from data import DiffussionDB
-from PIL import Image
-from torchvision import transforms
-from transformers import AutoTokenizer, CLIPTextModel
 from diffusers import (
     AutoencoderKL,
     ControlNetModel,
@@ -15,16 +11,25 @@ from diffusers import (
 )
 from diffusers.optimization import get_scheduler
 from dotenv import load_dotenv
+from torchvision import transforms
 from tqdm import tqdm
+from transformers import AutoTokenizer, CLIPTextModel
+
+from data import DiffussionDB
 
 load_dotenv()
+
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    conditioning_pixel_values = torch.stack([example["conditioning_pixel_values"] for example in examples])
-    conditioning_pixel_values = conditioning_pixel_values.to(memory_format=torch.contiguous_format).float()
+    conditioning_pixel_values = torch.stack(
+        [example["conditioning_pixel_values"] for example in examples]
+    )
+    conditioning_pixel_values = conditioning_pixel_values.to(
+        memory_format=torch.contiguous_format
+    ).float()
 
     input_ids = torch.stack([example["input_ids"] for example in examples])
 
@@ -34,15 +39,17 @@ def collate_fn(examples):
         "input_ids": input_ids,
     }
 
-def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
+def make_train_dataset(dataset, tokenizer, accelerator, resolution=224):
     image_column = dataset.image_key
     caption_column = dataset.caption_key
     conditioning_image_column = dataset.qr_key
 
     image_transforms = transforms.Compose(
         [
-            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize(
+                resolution, interpolation=transforms.InterpolationMode.BILINEAR
+            ),
             transforms.CenterCrop(resolution),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
@@ -51,7 +58,9 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
     conditioning_image_transforms = transforms.Compose(
         [
-            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+            transforms.Resize(
+                resolution, interpolation=transforms.InterpolationMode.BILINEAR
+            ),
             transforms.CenterCrop(resolution),
             transforms.ToTensor(),
         ]
@@ -59,7 +68,11 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
 
     def tokenize_captions(examples):
         inputs = tokenizer(
-            examples[caption_column], max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
+            examples[caption_column],
+            max_length=tokenizer.model_max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
         )
         return inputs.input_ids
 
@@ -67,19 +80,24 @@ def make_train_dataset(dataset, tokenizer, accelerator, resolution = 224):
         images = [image.convert("RGB") for image in examples[image_column]]
         images = [image_transforms(image) for image in images]
 
-        conditioning_images = [image.convert("RGB") for image in examples[conditioning_image_column]]
-        conditioning_images = [conditioning_image_transforms(image) for image in conditioning_images]
+        conditioning_images = [
+            image.convert("RGB") for image in examples[conditioning_image_column]
+        ]
+        conditioning_images = [
+            conditioning_image_transforms(image) for image in conditioning_images
+        ]
 
         examples["pixel_values"] = images
         examples["conditioning_pixel_values"] = conditioning_images
         examples["input_ids"] = tokenize_captions(examples)
 
         return examples
-    
+
     with accelerator.main_process_first():
         train_dataset = dataset.dataset.with_transform(preprocess_train)
 
     return train_dataset
+
 
 if __name__ == "__main__":
     BATCH_SIZE = 32
@@ -120,7 +138,6 @@ if __name__ == "__main__":
     )
 
     # Setup models
-
 
     noise_scheduler = DDPMScheduler.from_pretrained(
         BASE_MODEL,
@@ -192,24 +209,33 @@ if __name__ == "__main__":
         for step, batch in enumerate(train_dataloader):
             with accelerator.accumulate(controlnet):
                 # Convert images to latent space
-                latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
+                latents = vae.encode(
+                    batch["pixel_values"].to(dtype=weight_dtype)
+                ).latent_dist.sample()
                 latents = latents * vae.config.scaling_factor
 
                 # Sample noise that we'll add to the latents
                 noise = torch.randn_like(latents)
                 bsz = latents.shape[0]
                 # Sample a random timestep for each image
-                timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=latents.device)
+                timesteps = torch.randint(
+                    0,
+                    noise_scheduler.config.num_train_timesteps,
+                    (bsz,),
+                    device=latents.device,
+                )
                 timesteps = timesteps.long()
 
-                # Add noise to the latents according to the noise magnitude at each timestep
+                # Add noise to latents according to noise magnitude at each timestep
                 # (this is the forward diffusion process)
                 noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
 
                 # Get the text embedding for conditioning
                 encoder_hidden_states = text_encoder(batch["input_ids"])[0]
 
-                controlnet_image = batch["conditioning_pixel_values"].to(dtype=weight_dtype)
+                controlnet_image = batch["conditioning_pixel_values"].to(
+                    dtype=weight_dtype
+                )
 
                 down_block_res_samples, mid_block_res_sample = controlnet(
                     noisy_latents,
@@ -225,11 +251,13 @@ if __name__ == "__main__":
                     timesteps,
                     encoder_hidden_states=encoder_hidden_states,
                     down_block_additional_residuals=[
-                        sample.to(dtype=weight_dtype) for sample in down_block_res_samples
+                        sample.to(dtype=weight_dtype)
+                        for sample in down_block_res_samples
                     ],
-                    mid_block_additional_residual=mid_block_res_sample.to(dtype=weight_dtype),
+                    mid_block_additional_residual=mid_block_res_sample.to(
+                        dtype=weight_dtype
+                    ),
                 ).sample
-
 
                 # Get the target for loss depending on the prediction type
                 if noise_scheduler.config.prediction_type == "epsilon":
@@ -237,7 +265,11 @@ if __name__ == "__main__":
                 elif noise_scheduler.config.prediction_type == "v_prediction":
                     target = noise_scheduler.get_velocity(latents, noise, timesteps)
                 else:
-                    raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
+                    raise ValueError(
+                        f"""Unknown prediction type
+                        {noise_scheduler.config.prediction_type}
+                        """
+                    )
                 loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
 
                 accelerator.backward(loss)

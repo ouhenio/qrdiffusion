@@ -1,18 +1,14 @@
-import requests
 import os
 import random
 import string
-import io
-import cairosvg
+from typing import Optional, Union
+from urllib.parse import urlparse
+
 import numpy as np
-
-
-from typing import Union, Optional
-
 import qrcode
 import qrcode.image.svg
-from PIL import Image, ImageMath
-from urllib.parse import urlparse
+import requests
+from PIL import Image
 
 
 def create_qr(url: str) -> Image.Image:
@@ -29,6 +25,7 @@ def create_qr(url: str) -> Image.Image:
 
     return qr_image
 
+
 def overlay_qr(
     url: str,
     image: Union[Image.Image, str],
@@ -43,14 +40,15 @@ def overlay_qr(
     # convert to numpy to parallelize alpha processing
     np_qr_image = np.array(qr_image)
     is_white = np.all(np_qr_image[:, :, :3] > 200, axis=2)
-    np_qr_image[is_white, 3] = background_alpha # apply background_alpha to white
-    np_qr_image[~is_white, 3] = qr_alpha # apply qr_alpha to qr content
+    np_qr_image[is_white, 3] = background_alpha  # apply background_alpha to white
+    np_qr_image[~is_white, 3] = qr_alpha  # apply qr_alpha to qr content
 
     qr_transparent = Image.fromarray(np_qr_image)
 
     image.paste(qr_transparent, (0, 0), qr_transparent)
-    
+
     return image
+
 
 def download_image_from_url(
     url: str,
@@ -68,20 +66,20 @@ def download_image_from_url(
         else:
             response = requests.get(url, stream=True)
             if response.status_code == 200:
-                with open(save_path, 'wb') as file:
+                with open(save_path, "wb") as file:
                     file.write(response.content)
             else:
                 print(f"Couldn't download image from URL: {url}")
                 return None
-            
+
         # crop image to its smallest dimension
         image = Image.open(save_path)
         width, height = image.size
         min_dim = min(width, height)
-        left = (width - min_dim)/2
-        top = (height - min_dim)/2
-        right = (width + min_dim)/2
-        bottom = (height + min_dim)/2
+        left = (width - min_dim) / 2
+        top = (height - min_dim) / 2
+        right = (width + min_dim) / 2
+        bottom = (height + min_dim) / 2
 
         image = image.crop((left, top, right, bottom))
 
@@ -94,6 +92,9 @@ def download_image_from_url(
         print(f"Error downloading image from URL: {url}")
         print(f"Error message: {str(e)}")
         return None
-    
+
+
 def generate_random_string(length: int = 12) -> str:
-    return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(length))
+    return "".join(
+        random.choice(string.ascii_letters + string.digits) for _ in range(length)
+    )
