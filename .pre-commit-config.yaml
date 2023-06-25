@@ -2,10 +2,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
-    - id: end-of-file-fixer
-    - id: trailing-whitespace
-    - id: detect-private-key
-    - id: mixed-line-ending
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key
+      - id: mixed-line-ending
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
@@ -22,3 +23,4 @@ repos:
     rev: v0.0.270
     hooks:
       - id: ruff
+        args: [--fix]
